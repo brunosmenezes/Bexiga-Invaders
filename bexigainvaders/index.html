@@ -1,0 +1,287 @@
+<!doctype html>
+	<html>
+	<head>
+	<meta charset="utf-8">
+	<title>BEXIGA INVADERS</title>
+	<link href="https://fonts.googleapis.com/css?family=Audiowide" rel="stylesheet">
+	<script src="phaser.min.js"> </script>
+	<script type="text/javascript"></script>
+	<style type="text/css">
+        body {
+            margin: auto;
+        }
+    </style>
+	</head>
+
+
+
+<body>
+
+
+<script type="text/javascript">
+		var game = new Phaser.Game(800, 512, Phaser.AUTO, 'Bexiga Invaders', {preload: preload, create: create, update: update});
+
+
+
+
+		//Fazer o preload do jogo
+		function preload(){
+			//Chamada dos Assets do Jogo
+			game.load.image('background', 'assets/bg3.jpg');
+			game.load.image('bexiga', 'assets/balloon.png');
+			game.load.image('robo', 'assets/robot2.png');
+			game.load.image('bullet','assets/laser.png');
+			game.load.audio('tiro','assets/tiro.mp3');
+			game.load.audio('ploc','assets/ploc.mp3');
+			game.load.audio('explosao','assets/explosao.mp3');
+			game.load.audio('trilha',['assets/ferambie.mp3','assets/ferambie.ogg']);
+			game.load.spritesheet('explosion','assets/explode.png', 128, 128);
+		}
+
+		//Declaração das Variáveis Usadas durante o Código
+		var bexiga;
+		var player;
+		var weapon;
+		var pontos ='';
+		var score;
+		var pontosTexto;
+		var bexigasTempo;
+		var tempo = 1;
+		var gameOver;
+		var reiniciar;
+		var tiro;
+		var ploc;
+		var music;
+		var explosions;
+		var iniciar;
+		var titulo;
+		var gravidade = 30;
+
+		//Criação da Partida
+		function create(){
+
+			//Não Mostrar o mouse na área do jogo
+			game.canvas.style.cursor = 'none';
+			
+			//Liga a música no jogo
+			music = game.add.audio('trilha');
+			music.loop=true;
+			music.play();
+			
+			//Criação da Fìsica do Jogo
+			game.physics.startSystem(Phaser.Physics.ARCADE);
+			
+			//Chama o plano de fundo do jogo
+			game.add.sprite(0, 0, 'background');
+
+			//Criação das Bexigas
+			//Criar um grupo de bexigas
+			bexiga = game.add.group();
+			//Colocar "corpo" nas bexigas
+			bexiga.enableBody = true;
+			//Liberar a Física para as bexigas
+			bexiga.physicsBodyType = Phaser.Physics.ARCADE;
+			//Deixar em "buffer" 1000 bexigas
+			bexiga.createMultiple(1000,'bexiga');
+		  
+
+		    //Adicionar sons ao jogo
+		    tiro = game.add.audio('tiro');
+		    ploc = game.add.audio('ploc');
+		    explosao = game.add.audio('explosao');
+
+		    //Criar a Explosão 
+		    explosions = game.add.group();
+    		explosions.enableBody = true;
+   			explosions.physicsBodyType = Phaser.Physics.ARCADE;
+    		explosions.createMultiple(1, 'explosion');
+    		explosions.setAll('anchor.x', 0.5);
+    		explosions.setAll('anchor.y', 0.5);
+    		explosions.forEach( function(explosion) {
+        	explosion.animations.add('explosion');
+    		});
+					
+			//Criação do Robô
+   		 	criarRobo();
+
+   		 	//Mostra o Título do Jogo
+   		 	titulo = game.add.text(game.world.centerX, game.world.centerY, 'BEXIGA INVADERS', { font: '84px Impact', fill: '#fff' });
+   		 	titulo.anchor.setTo(0.5, 0.5);
+   		 	titulo.visible = true;
+   		 	iniciar = game.add.text(game.world.centerX, game.world.centerY+100, 'Clique para Iniciar', { font: '40px Impact', fill: '#fff' });
+   		 	iniciar.anchor.setTo(0.5, 0.5);
+				iniciar.visible = true;
+				//Comando de Clicar para Iniciar o jogo
+   		 	game.input.onDown.addOnce(criarBexigas, this);
+   
+   			//Chamar os comandos de teclado
+   			//Movimento do robô
+   			cursors = game.input.keyboard.createCursorKeys();
+   			//Tiro do robô
+   			fireButton = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+   			
+   			//Texto de Game Over
+   			gameOver = game.add.text(game.world.centerX, game.world.centerY, 'GAME OVER!', { font: '84px Impact', fill: '#fff' });
+		    gameOver.anchor.setTo(0.5, 0.5);
+				gameOver.visible = false;
+				reiniciar = game.add.text(225, 350, 'Clique para Reiniciar', { font: '40px Impact', fill: '#fff' });
+				reiniciar.visible = false;
+
+   			//Pontuação
+   			score = 0;
+   			pontos = 'Pontos = ';
+   			pontosTexto = game.add.text(10,10, pontos + score, {font: '30px Impact', fill:'#fff'});
+
+   	}
+		//Mecânica da Partida
+		function update(){
+			//Movimentação do Robô
+				player.body.velocity.x = 0;
+			//Esquerda
+		    if (cursors.left.isDown){
+		    	//Velocidade de Movimento para a Esquerda
+		        player.body.velocity.x = -300;
+	        }
+	        //Direita
+		    else if (cursors.right.isDown){
+		    	//Velocidade de Movimento para a Direita
+		        player.body.velocity.x = 300;
+		    }
+		    //Colisão dos Balões com o Robô
+		    game.physics.arcade.collide(player, bexiga, destruirPlayer, null, this);
+
+		    //Colisão dos Tiros com as Bexigas
+		    game.physics.arcade.collide(weapon.bullets, bexiga, destruirBexigas, null, this);
+		   
+		    //Atirando
+			 	if (fireButton.isDown && player.alive){
+			 					//Função Nativa para Atirar
+	            	weapon.fire();
+	            	//Toda vez que apertar a tecla de tiro, rola o som também
+	            	tiro.play();
+	      }
+    }
+		function criarBexigas(){
+			//Apaga os textos
+			iniciar.visible = false;
+			titulo.visible = false;
+
+			var ball = bexiga.getFirstExists(false);
+
+			//Aparecimento de cada bexiga dentro do jogo
+			if(ball){
+				//Onde as bexigas aparecem
+				ball.reset(game.rnd.integerInRange(25, game.width-25),0);
+				//Velocidade de queda das bexigas
+				ball.body.gravity.y = gravidade;
+				//Mante-las no chão
+				ball.body.collideWorldBounds = true;
+			}
+				//Tempo para o Aparecimento de cada Bexiga
+				bexigasTempo = game.time.events.add(1000/tempo, criarBexigas);
+		}
+
+   		function criarRobo(){
+   			//Adicionar a imagem do Robô
+   			player = game.add.sprite(400, 500, 'robo');
+   		 	//Adicionar Física ao robô
+    		game.physics.arcade.enable(player);
+   			//Limitar o Robô para não sair da área do jogo
+   			player.body.collideWorldBounds = true;
+   			
+
+   			//Criação das Balas
+   			weapon = game.add.weapon(10,'bullet');
+   			weapon.enableBody = true;
+   			game.physics.arcade.enable(weapon);
+   			//Destroi as Balas Quando Sai da Área do jogo
+   			weapon.bulletKillType = Phaser.Weapon.KILL_WORLD_BOUNDS;
+   			//Velocidade das Balas
+   			weapon.bulletSpeed = 500;
+   			//Velocidade de Tiro
+   			weapon.fireRate = 300;
+   			//Girar as balas para ficarem viradas para cima
+   			weapon.bulletAngleOffset = 90;
+   			//Para as balas acompanharem o movimento do robô
+   			weapon.trackSprite(player, 25,0);
+   		}	
+
+	   	//O que acontece quando a arma encosta da bexiga
+			function destruirBexigas(weapon, ball){
+				//Destroi o tiro
+				weapon.kill();
+				//Detroi a bexiga
+				ball.kill();
+				//Aumenta o placar em 10
+				score +=10;
+				//Mostra o placar com o novo valor
+				pontosTexto.text = pontos + score;
+				//Toca o som da Bexiga estourando
+				ploc.play();
+
+				//Aumentar a dificuldade do jogo
+				var compararScore = 100;
+				//Se o score for igual a essa variável criada
+				if (score == compararScore){
+					//Diminui o tempo de aparecimento das bexigas
+					tempo +=0.5;
+					//Aumenta a variável em 100
+					compararScore +=100;
+					//Aumenta a gravidade das bexigas em 10
+					gravidade += 10;
+				}
+				
+			}
+			// Se a bexiga encosta no robô
+			function destruirPlayer(player, ball){
+				//Destroi o bexiga
+				ball.kill();
+				//Destroi o robô
+				player.kill();
+				//Toca o som de explosão
+				explosao.play();
+				//Apaga todas bexigas da tela
+				bexiga.callAll('kill');
+				//Para de criar novas bexigas
+		   	game.time.events.remove(bexigasTempo);
+		   	//Mostra o recado de Game Over
+		   	gameOver.visible = true;
+		   	//Mostra a mensagem para reiniciar
+		   	reiniciar.visible = true;
+		   	//Para a música quando morre
+		   	music.stop();
+		   	//Executar a explosão quando atinge o robô
+		   	var explosion = explosions.getFirstExists(false);
+		   	//Local onde ocorre a explosão
+	    	explosion.reset(ball.body.x + ball.body.halfWidth, ball.body.y + ball.body.halfHeight);
+	    	//Transparência da explosão
+	    	explosion.alpha = 0.7;
+	    	//Roda a explosão
+	    	explosion.play('explosion', 30, false, true);
+	    	//Libera a função de clicar para Reiniciar
+		   	game.input.onTap.addOnce(restart);
+			}
+
+			function restart () {
+		   		//Reinicia o jogador
+		    	player.revive();
+		    	//Reinicia o Placar
+		    	pontosTexto.visible = false;
+		    	score = 0;
+		    	pontosTexto = game.add.text(10,10, pontos + score, {font: '30px Impact', fill:'#fff'});
+		    	//Reinicia a Música
+		    	music.play();
+		    	//Volta a variável tempo para 1
+	    		tempo = 1;
+	    		//Volta a gravidade para 30
+	    		gravidade = 30;
+	    		//Volta a criar Bexigas
+		    	criarBexigas();
+		    	//Apaga o recado de Game Over
+			   	gameOver.visible = false;
+			   	//Apaga a mensagem para reiniciar
+			   	reiniciar.visible = false;
+			}
+</script>
+</body>
+</html>
